@@ -1,0 +1,13 @@
+name: ss
+version: 0.1.0
+
+authors:
+  - myferr <contactme.myfer@protonmail.com>
+
+targets:
+  ss:
+    main: src/ss.cr
+
+crystal: '>= 1.18.2'
+
+license: MIT
