@@ -11,12 +11,14 @@ module Ss
     property command : String?
     property target_dir : String?
     property preview : Bool
+    property passphrase : String?
 
     def initialize
       @id = nil
       @command = nil
       @target_dir = nil
       @preview = false
+      @passphrase = nil
     end
 
     def parse(args)
@@ -36,7 +38,8 @@ module Ss
         Flags:
           --id                | Provide an ID for your snapshot
           --dir, -D           | Load snapshot to specific directory
-          --preview, -P       | Preview snapshot contents
+          --preview, -p       | Preview snapshot contents
+          --passphrase, -P    | Custom passphrase for encryption
         USAGE
 
         parser.on("--id VALUE", "Provide an ID for your snapshot") do |value|
@@ -47,8 +50,12 @@ module Ss
           @target_dir = value
         end
 
-        parser.on("--preview", "-P", "Preview snapshot contents") do
+        parser.on("--preview", "-p", "Preview snapshot contents") do
           @preview = true
+        end
+
+        parser.on("--passphrase VALUE", "-P", "Custom passphrase for encryption") do |value|
+          @passphrase = value
         end
 
         parser.on("-h", "--help", "Show this help") do
@@ -88,7 +95,7 @@ module Ss
 
     private def run_snap(args)
       directory = args[1]? || Dir.current
-      snapshot = Snapshot.new(directory, @id)
+      snapshot = Snapshot.new(directory, @id, @passphrase)
 
       print "Snapshotting.. | "
 
@@ -128,16 +135,20 @@ module Ss
       target = @target_dir || Dir.current
       confirm = @target_dir.nil?
 
-      loader = Loader.new(snapshot, target)
+      begin
+        loader = Loader.new(snapshot, target, @passphrase)
 
-      if @preview
-        loader.preview
-      else
-        loader.set_progress_callback do |progress|
-          print "\rLoading snapshot... | #{render_progress_bar(progress)} |"
+        if @preview
+          loader.preview
+        else
+          loader.set_progress_callback do |progress|
+            print "\rLoading snapshot... | #{render_progress_bar(progress)} |"
+          end
+
+          loader.load_with_progress(confirm)
         end
-
-        loader.load_with_progress(confirm)
+      rescue ex
+        exit(1)
       end
     end
 

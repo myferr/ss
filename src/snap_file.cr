@@ -5,17 +5,19 @@ require "json"
 module Ss
   class SnapFile
     property data : Hash(String, JSON::Any)
+    property passphrase : String?
 
     ENCRYPTION_KEY = "ss-snapshot-key-12345"
 
-    def initialize(@data)
+    def initialize(@data, @passphrase = nil)
     end
 
     def encrypt : String
       cipher = OpenSSL::Cipher.new("aes-256-cbc")
       cipher.encrypt
 
-      key = cipher.key = Digest::SHA256.digest(ENCRYPTION_KEY)
+      encryption_key = @passphrase || ENCRYPTION_KEY
+      key = cipher.key = Digest::SHA256.digest(encryption_key)
       iv = cipher.random_iv
 
       json_data = @data.to_json
@@ -33,7 +35,7 @@ module Ss
       "#{encoded_header}.#{encoded_data}"
     end
 
-    def self.decrypt(encrypted_content : String) : Hash(String, JSON::Any)
+    def self.decrypt(encrypted_content : String, passphrase : String? = nil) : Hash(String, JSON::Any)
       header_part, data_part = encrypted_content.split(".")
 
       header_json = Base64.decode_string(header_part)
@@ -44,7 +46,8 @@ module Ss
 
       decipher = OpenSSL::Cipher.new("aes-256-cbc")
       decipher.decrypt
-      decipher.key = Digest::SHA256.digest(ENCRYPTION_KEY)
+      encryption_key = passphrase || ENCRYPTION_KEY
+      decipher.key = Digest::SHA256.digest(encryption_key)
       decipher.iv = iv
 
       decrypted = decipher.update(encrypted_data) + decipher.final

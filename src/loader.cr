@@ -9,12 +9,21 @@ module Ss
     @current_item = 0
     @progress_callback : Proc(Float32, Nil)?
 
-    def initialize(snapshot_filename, @target_dir)
+    def initialize(snapshot_filename, @target_dir, passphrase : String? = nil)
       home_dir = Path.home.to_s
       snapshot_path = File.join(home_dir, ".ss", snapshot_filename)
 
       encrypted_content = File.read(snapshot_path)
-      @snapshot_data = SnapFile.decrypt(encrypted_content)
+      # Initialize to empty hash to satisfy Crystal's type system
+      @snapshot_data = Hash(String, JSON::Any).new
+      
+      begin
+        @snapshot_data = SnapFile.decrypt(encrypted_content, passphrase)
+      rescue ex : OpenSSL::Cipher::Error
+        puts "Error: Failed to decrypt snapshot. The passphrase may be incorrect."
+        puts "If this snapshot was created with a passphrase, use --passphrase to provide it."
+        raise "Decryption failed"
+      end
     end
 
     def set_progress_callback(&block : Float32 ->)
@@ -95,13 +104,28 @@ module Ss
         type = item_hash["type"].as_s
         item_path = File.join(base_path, name)
 
+        # Skip .git directories to avoid permission issues
+        if name == ".git"
+          next
+        end
+
         if type == "directory"
-          Dir.mkdir_p(item_path) unless Dir.exists?(item_path)
-          contents = item_hash["contents"]?.try(&.as_a) || [] of JSON::Any
-          restore_structure(contents, item_path)
+          begin
+            Dir.mkdir_p(item_path) unless Dir.exists?(item_path)
+            contents = item_hash["contents"]?.try(&.as_a) || [] of JSON::Any
+            restore_structure(contents, item_path)
+          rescue ex : File::AccessDeniedError
+            # Skip directories we can't write to (like .git)
+            next
+          end
         else
-          content = item_hash["content"].as_s
-          File.write(item_path, Base64.decode_string(content))
+          begin
+            content = item_hash["content"].as_s
+            File.write(item_path, Base64.decode_string(content))
+          rescue ex : File::AccessDeniedError
+            # Skip files we can't write to
+            next
+          end
         end
       end
     end
@@ -113,13 +137,34 @@ module Ss
         type = item_hash["type"].as_s
         item_path = File.join(base_path, name)
 
+        # Skip .git directories to avoid permission issues
+        if name == ".git"
+          @current_item += 1
+          update_progress
+          next
+        end
+
         if type == "directory"
-          Dir.mkdir_p(item_path) unless Dir.exists?(item_path)
-          contents = item_hash["contents"]?.try(&.as_a) || [] of JSON::Any
-          restore_structure_with_progress(contents, item_path)
+          begin
+            Dir.mkdir_p(item_path) unless Dir.exists?(item_path)
+            contents = item_hash["contents"]?.try(&.as_a) || [] of JSON::Any
+            restore_structure_with_progress(contents, item_path)
+          rescue ex : File::AccessDeniedError
+            # Skip directories we can't write to (like .git)
+            @current_item += 1
+            update_progress
+            next
+          end
         else
-          content = item_hash["content"].as_s
-          File.write(item_path, Base64.decode_string(content))
+          begin
+            content = item_hash["content"].as_s
+            File.write(item_path, Base64.decode_string(content))
+          rescue ex : File::AccessDeniedError
+            # Skip files we can't write to
+            @current_item += 1
+            update_progress
+            next
+          end
         end
 
         @current_item += 1

@@ -55,6 +55,12 @@ ss snap /path/to/project
 
 # Snapshot with a custom ID
 ss snap --id my-project
+
+# Snapshot with a custom passphrase
+ss snap --passphrase 'unlock me cutie'
+
+# Snapshot with both custom ID and passphrase
+ss snap --id my-project --passphrase 'unlock me cutie'
 ```
 
 #### List snapshots
@@ -74,6 +80,9 @@ ss load <snapshot-file> --dir /path/to/restore
 
 # Preview snapshot contents without loading
 ss load <snapshot-file> --preview
+
+# Load snapshot with passphrase
+ss load <snapshot-file> --passphrase 'unlock me cutie'
 ```
 
 #### Remove a snapshot
@@ -93,20 +102,22 @@ ss remove <snapshot-file>
 
 ### Options
 
-| Option        | Short | Description                         |
-| ------------- | ----- | ----------------------------------- |
-| `--id VALUE`  | -     | Provide an ID for your snapshot     |
-| `--dir VALUE` | -D    | Load snapshot to specific directory |
-| `--preview`   | -P    | Preview snapshot contents           |
-| `--help`      | -h    | Show help message                   |
-| `--version`   | -v    | Show version information            |
+| Option               | Short | Description                         |
+| -------------------- | ----- | ----------------------------------- |
+| `--id VALUE`         | -     | Provide an ID for your snapshot     |
+| `--dir VALUE`        | -D    | Load snapshot to specific directory |
+| `--preview`          | -p    | Preview snapshot contents           |
+| `--passphrase VALUE` | -P    | Custom passphrase for encryption    |
+| `--help`             | -h    | Show help message                   |
+| `--version`          | -v    | Show version information            |
 
 ## How it Works
 
 1. **Storage**: Snapshots are stored in `~/.ss/` directory with `.snap` extension
-2. **Encryption**: All snapshots are encrypted using AES-256-CBC encryption
-3. **Structure**: Snapshots preserve directory structure and file contents using Base64 encoding
-4. **Filenames**: Snapshot files are named as `<timestamp>-<id>.snap`
+2. **Encryption**: All snapshots are encrypted using AES-256-CBC encryption with SHA-256 key derivation
+3. **Passphrases**: You can provide a custom passphrase when creating snapshots. If no passphrase is provided, a default key is used
+4. **Structure**: Snapshots preserve directory structure and file contents using Base64 encoding
+5. **Filenames**: Snapshot files are named as `<timestamp>-<id>.snap`
 
 ## Examples
 
@@ -145,6 +156,25 @@ shard.yml
 
 ```
 $ ss load 1735814400-my-awesome-project.snap --dir /tmp/restore
+You sure you want to load snapshot (y/N)?: y
+Loading snapshot... | ██████████ |
+
+Loaded!
+```
+
+### Snapshot with custom passphrase
+
+```
+$ ss snap --passphrase 'unlock me cutie'
+Snapshotting.. | ██████████ |
+
+Saved! View here: ~/.ss/1735814400-snap.snap
+```
+
+### Load snapshot with passphrase
+
+```
+$ ss load 1735814400-snap.snap --passphrase 'unlock me cutie'
 You sure you want to load snapshot (y/N)?: y
 Loading snapshot... | ██████████ |
 

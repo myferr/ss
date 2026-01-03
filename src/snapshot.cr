@@ -7,12 +7,13 @@ module Ss
     property directory : String
     property id : String?
     property timestamp : String
+    property passphrase : String?
 
     @total_items = 0
     @current_item = 0
     @progress_callback : Proc(Float32, Nil)?
 
-    def initialize(@directory, @id = nil)
+    def initialize(@directory, @id = nil, @passphrase = nil)
       @timestamp = Time.utc.to_unix.to_s
     end
 
@@ -28,7 +29,7 @@ module Ss
       count_items(@directory)
       snap_data = build_snapshot_data(@directory)
 
-      snap_file = SnapFile.new(snap_data)
+      snap_file = SnapFile.new(snap_data, @passphrase)
       encrypted_data = snap_file.encrypt
 
       filename = "#{timestamp}-#{@id || "snap"}.snap"
@@ -55,6 +56,9 @@ module Ss
     private def count_items(path : String)
       if File.directory?(path)
         Dir.each_child(path) do |entry|
+          # Skip .git directories
+          next if entry == ".git"
+          
           entry_path = File.join(path, entry)
           if File.directory?(entry_path)
             count_items(entry_path)
@@ -69,6 +73,9 @@ module Ss
 
       if File.directory?(path)
         Dir.each_child(path) do |entry|
+          # Skip .git directories
+          next if entry == ".git"
+          
           entry_path = File.join(path, entry)
 
           if File.directory?(entry_path)
